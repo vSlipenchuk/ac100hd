@@ -1,0 +1,65 @@
+# need marvin-ac.sfs and arm2007v1 compiler toolchain
+#
+#  git checkout c3f97e1841f5d0ed44255a22b0acb1382a4844b3
+#  mk  paz00_defconfig
+
+k=/opt/marvin24s-kernel
+p=`pwd`
+
+#CMD="mem=512M@0M console=tty1 root=/dev/mmcblk1p1 rootwait "
+CMD='mem=448M@0M tegrapart=recovery:300:a00:800,boot:d00:1000:800,mbr:1d00:200:800 root=/dev/mmcblk1p1  rootwait  console=tty1'
+
+cd $k
+v=`mk kernelrelease`
+echo "WeHaveKernel: $v"
+
+
+case "$1" in
+  b)
+  sfs add /mnt/c/back/ac100 marvin*sfs
+  sfs add /mnt/c/back/arm-2007q1.sfs
+  cd $k
+  mk  paz00_defconfig
+  ;;
+  cfg|config)
+  echo "copying cfg $2 to $k"
+  cp $p/$2 $k/.config && echo OK
+  ;;
+  check)
+  cd $k
+  git checkout c3f97e1841f5d0ed44255a22b0acb1382a4844b3
+  echo checkout stable commit
+  ;;
+  m)
+   rm -rf /tmp/lib
+   echo compress modules
+   cd $k
+   mk INSTALL_MOD_PATH=/tmp modules_install 2> /dev/null
+   (cd /tmp; tar czf $p/$v-modules.tar.gz lib)
+   
+   cp .config $p/$v.config
+   
+   mkbootimg \
+  --kernel $k/arch/arm/boot/zImage \
+  --ramdisk /dev/null \
+  --cmdline  "$CMD"   -o $p/$v-linux.img
+  
+   echo "modules and kernel version : $v done" 
+  ;;
+  unpack)
+   rm -rf out
+   mkdir out
+   unpackbootimg  -i $2 -o out
+   ;;
+  repack)
+     mkbootimg \
+  --kernel out/*zImage \
+  --ramdisk /dev/null \
+  --cmdline "$CMD"   -o last-linux.img
+  ;;
+  
+  
+  *)
+     echo "usage: m|b|cfg";
+  ;;
+esac
